@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#173c2a">
+  <title>Kruidenwijzer</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="hero">
+  <div class="eyebrow">DE KRUIDENWIJZER</div>
+  <h1>Kruiden &amp; traditionele remedies</h1>
+  <p>Vind informatie per kruid, toepassing of lichaamsstelsel.</p>
+  <label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Zoek klacht, kruid of remedie…" autocomplete="off"><button id="clearSearch" aria-label="Zoekveld wissen">×</button></label>
+</header>
+<nav class="tabs" aria-label="Hoofdnavigatie">
+  <button class="tab active" data-view="home">Overzicht</button>
+  <button class="tab" data-view="favorites">Favorieten <span id="favCount">0</span></button>
+  <button class="tab" data-view="safety">Veiligheid</button>
+</nav>
+<main id="app" class="main"></main>
+<footer>Educatieve informatie — geen vervanging voor arts of apotheker.</footer>
+<script src="app.js"></script>
+</body>
+</html>
