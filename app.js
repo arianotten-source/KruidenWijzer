@@ -30,22 +30,122 @@ let view="home", selectedCategory=null, selectedId=null, query="";
 const favorites = new Set(JSON.parse(localStorage.getItem("kruiden-favs")||"[]"));
 const app=document.getElementById("app"), search=document.getElementById("search");
 function saveFavs(){localStorage.setItem("kruiden-favs",JSON.stringify([...favorites]));document.getElementById("favCount").textContent=favorites.size}
-function setView(v){view=v;selectedId=null;selectedCategory=null;document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.view===v));render()}
-function detail(id){selectedId=id;render()}
+function navState(){return {view,selectedCategory,selectedId,query}}
+function saveNavigation(){history.pushState(navState(),"",location.pathname+location.search+"#"+(selectedId?"remedie-"+selectedId:selectedCategory?"categorie-"+encodeURIComponent(selectedCategory):view))}
+function restoreNavigation(state){view=state?.view||"home";selectedCategory=state?.selectedCategory||null;selectedId=state?.selectedId||null;query=state?.query||"";search.value=query;document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.view===view));render()}
+history.replaceState(navState(),"",location.href);
+window.addEventListener("popstate",e=>{restoreNavigation(e.state);});
+function setView(v){view=v;selectedId=null;selectedCategory=null;document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.view===v));saveNavigation();render()}
+function detail(id){selectedId=id;saveNavigation();render()}
 function toggleFav(id){favorites.has(id)?favorites.delete(id):favorites.add(id);saveFavs();render()}
 function safeText(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function card(r){return `<article class="card"><div class="plant-icon">${r.icon}</div><div><h3>${safeText(r.name)}</h3><div class="latin">${safeText(r.latin)}</div><p>${safeText(r.summary)}</p><div class="card-actions"><button class="btn" data-detail="${r.id}">Bekijk informatie</button><button class="btn star" data-fav="${r.id}" aria-label="Favoriet">${favorites.has(r.id)?"♥":"♡"}</button></div></div></article>`}
+
+const clinicalInfo = {
+  "peppermint": {
+    evidence:"EMA beoordeelt pepermuntblad voor lichte spijsverteringsklachten op basis van traditioneel gebruik; klinisch bewijs is onvoldoende voor een harde conclusie.",
+    dose:"Geen universele dosering voor losse thee. Gebruik voor een geregistreerd kruidengeneesmiddel uitsluitend de dosering in de bijsluiter; product en extract maken verschil.",
+    interactions:"Voorzichtig bij reflux/brandend maagzuur en galwegproblemen. Vraag apotheker bij medicijngebruik; interactiegegevens verschillen per preparaat.",
+    source:"https://www.ema.europa.eu/en/medicines/herbal/menthae-piperitae-folium"
+  },
+  "thyme": {
+    evidence:"EMA: tijmpreparaten kunnen traditioneel worden gebruikt bij productieve hoest; klinische studies zijn beperkt en leveren geen sterk bewijs.",
+    dose:"EMA-monografie noemt voor specifieke gedroogde tijmkruideninfusie bij volwassenen 1–2 g in 150 ml kokend water, 3–4 keer per dag. Dit geldt niet voor etherische olie, extracten of elk zelfgemaakt product.",
+    interactions:"Niet gebruiken bij allergie voor tijm of andere lipbloemigen; maagklachten kunnen voorkomen. Voor combinatie met medicatie: controleer het specifieke product.",
+    source:"https://www.ema.europa.eu/en/medicines/herbal/thymi-herba"
+  },
+  "chamomile": {
+    evidence:"EMA erkent bepaalde toepassingen van kamille op basis van traditioneel gebruik; dat is niet hetzelfde als overtuigend klinisch bewijs voor alle klachten.",
+    dose:"Er is geen enkele dosering voor alle kamilleproducten en toepassingen. Volg de bijsluiter van een geregistreerd product; de EMA-monografie beschrijft verschillende preparaten en toepassingen.",
+    interactions:"Vermijd bij bekende allergie voor kamille of andere composieten. Meld supplementen aan apotheker, zeker bij bloedverdunners of meerdere medicijnen.",
+    source:"https://www.ema.europa.eu/en/medicines/herbal"
+  },
+  "valerian": {
+    evidence:"EMA erkent traditioneel gebruik van valeriaanwortel voor lichte stress en als hulpmiddel bij slaap; het effect bouwt geleidelijk op en bewijs verschilt per preparaat.",
+    dose:"EMA noemt voor bepaalde valeriaanwortelthee 0,3–3 g fijngesneden wortel in 150 ml kokend water; dit is geen algemene persoonlijke dosis en geldt niet voor alle extracten. Niet voor kinderen onder 12 jaar zonder professioneel advies.",
+    interactions:"Kan sufheid versterken met alcohol of kalmerende/slaapmiddelen. Bespreek combinatie met medicatie met apotheker; rijd niet als je suf bent.",
+    source:"https://www.ema.europa.eu/en/medicines/herbal/valerianae-radix"
+  },
+  "ginger": {
+    evidence:"EMA heeft een monografie voor gemberwortel met toepassingen die afhankelijk zijn van het preparaat; dit bewijst niet dat elke gemberthee elke klacht behandelt.",
+    dose:"Geen algemene dosis voor verse gemberthee. De EMA-monografie onderscheidt specifieke poeders en extracten; volg productbijsluiter en vraag advies bij therapeutische doses.",
+    interactions:"Voorzichtig bij bloedverdunners/antistolling en bij galstenen of galwegproblemen; het risico hangt af van product en hoeveelheid. Overleg met apotheker bij medicatie.",
+    source:"https://www.ema.europa.eu/en/medicines/herbal/zingiberis-rhizoma"
+  },
+  "aloe": {
+    evidence:"Aloë-gel voor uitwendig gebruik en aloë-latex/inname zijn verschillende producten met verschillende risico's; bewijs is afhankelijk van toepassing.",
+    dose:"Geen orale dosering adviseren. Gebruik alleen een geschikt huidproduct volgens etiket; slik geen aloë-latex of niet-gespecificeerde zelfgemaakte bereiding in.",
+    interactions:"Inname van aloë-latex kan diarree en verstoring van zouten veroorzaken en kan wisselwerken met onder meer diuretica en digoxine. Alleen uitwendig product gebruiken volgens etiket.",
+    source:"https://www.nccih.nih.gov/health/aloe-vera"
+  },
+  "willow": {
+    evidence:"Wilgenschors bevat salicylaten; de bewijsbasis en toegestane toepassingen gelden voor specifieke geneesmiddelen, niet voor willekeurige zelfgemaakte thee.",
+    dose:"Geen zelfdoseeradvies. Preparaten verschillen sterk en kunnen salicylaat bevatten; volg alleen de bijsluiter van een geregistreerd product.",
+    interactions:"Niet combineren zonder medisch advies met acetylsalicylzuur, andere NSAID's of bloedverdunners; extra voorzichtig bij maagzweren, nierproblemen en salicylaatallergie.",
+    source:"https://www.ema.europa.eu/en/medicines/herbal"
+  },
+  "echinacea": {
+    evidence:"Onderzoek naar echinacea bij verkoudheid geeft wisselende resultaten; effect hangt mogelijk af van soort, plantendeel en product.",
+    dose:"Geen universele dosering. Gebruik alleen volgens productbijsluiter; geen dosering uit de naam van de plant afleiden.",
+    interactions:"Voorzichtig bij allergie voor composieten en bij auto-immuunziekten of immunosuppressiva; overleg met arts/apotheker.",
+    source:"https://www.nccih.nih.gov/health/echinacea"
+  },
+  "arnica": {
+    evidence:"Arnica wordt gebruikt in bepaalde uitwendige producten; bewijs verschilt per toepassing en formulering.",
+    dose:"Alleen uitwendig product volgens etiket. Niet inslikken en niet aanbrengen op open wonden tenzij productinformatie dit uitdrukkelijk toestaat.",
+    interactions:"Inname kan giftig zijn. Bij uitwendig gebruik kan huidirritatie/allergie optreden. Overleg bij medicijngebruik of twijfel.",
+    source:"https://www.ema.europa.eu/en/medicines/herbal"
+  }
+};
+const highRiskInteractions = {
+  "sint-janskruid": "Belangrijke wisselwerkingen: kan de werking van veel medicijnen verlagen, waaronder bepaalde anticonceptiva, transplantatiemedicatie, hiv-middelen, anticoagulantia en sommige antidepressiva. Niet combineren zonder arts/apotheker.",
+  "st. john's wort": "Belangrijke wisselwerkingen: kan de werking van veel medicijnen verlagen, waaronder bepaalde anticonceptiva, transplantatiemedicatie, hiv-middelen, anticoagulantia en sommige antidepressiva. Niet combineren zonder arts/apotheker.",
+  "zoethout": "Zoethout kan bloeddruk verhogen en kalium verlagen; extra risico bij hoge bloeddruk, hart-/nierproblemen en bepaalde plaspillen, corticosteroïden of digoxine. Vermijd hoge of langdurige inname zonder medisch advies.",
+  "ginkgo": "Ginkgo kan het bloedingsrisico beïnvloeden en kan wisselwerken met bloedverdunners/antiplateletmiddelen. Bespreek gebruik met apotheker, zeker rond operaties.",
+  "knoflook": "Geconcentreerde supplementen kunnen het bloedingsrisico beïnvloeden en mogelijk wisselwerken met antistolling; dit geldt niet automatisch voor normale hoeveelheden in voeding.",
+  "ginseng": "Ginsengsupplementen kunnen onder meer invloed hebben op bloedsuiker en mogelijk op antistolling. Controleer combinatie met diabetesmedicatie of bloedverdunners.",
+  "kurkuma": "Geconcentreerde curcuminesupplementen zijn niet hetzelfde als keukenkurkuma; mogelijke interacties en leverbijwerkingen zijn gemeld. Vraag advies bij medicijngebruik.",
+  "groene thee": "Groene thee-extracten kunnen anders werken dan een gewone kop thee; geconcentreerde extracten zijn in verband gebracht met leverschade en kunnen wisselwerken met sommige medicijnen.",
+  "mariadistel": "Mogelijke interacties zijn beschreven met onder meer sommige diabetesmiddelen en andere geneesmiddelen; laat een supplement controleren door apotheker."
+};
+function sourceLinks(r){
+  const plant = encodeURIComponent(r.plant || r.name);
+  const info = clinicalInfo[r.id] || {};
+  const sourceUrl = info.source || "https://www.ema.europa.eu/en/medicines/herbal";
+  const orderUrl = "https://www.google.com/search?q="+encodeURIComponent((r.plant||r.name)+" kopen Nederland gedroogd kruid betrouwbare leverancier");
+  const growUrl = "https://www.google.com/search?q="+encodeURIComponent((r.plant||r.name)+" plant kopen kwekerij Nederland");
+  const harvestUrl = "https://www.google.com/search?q="+encodeURIComponent((r.plant||r.name)+" herkennen verspreiding Nederland plant determinatie");
+  const key = (r.plant||r.name).toLowerCase();
+  let risk = Object.keys(highRiskInteractions).find(k=>key.includes(k));
+  return {info, sourceUrl, orderUrl, growUrl, harvestUrl, riskText:risk?highRiskInteractions[risk]:null};
+}
+function sourcePanel(r){
+  const d=sourceLinks(r);
+  const isDraft = String(r.latin||"").includes("nog te controleren") || String(r.summary||"").includes("Catalogusfiche in opbouw");
+  const evidence = d.info.evidence || (isDraft
+    ? "Nog niet beoordeeld per kruid. De traditionele toepassing, klinische studies en officiële monografie moeten eerst worden gecontroleerd. Er wordt daarom geen bewezen werking geclaimd."
+    : "Voor deze specifieke bereiding is nog geen volledige bronbeoordeling toegevoegd. Traditioneel gebruik is niet automatisch bewezen werkzaamheid.");
+  const dose = d.info.dose || "Geen betrouwbare, product-specifieke dosering in deze fiche vastgesteld. De dosis hangt af van plantendeel, extract, concentratie, leeftijd en toepassing. Niet zelf doseren op basis van deze voorlopige fiche.";
+  const interactions = d.riskText || d.info.interactions || (isDraft
+    ? "Interacties zijn nog niet volledig nagezocht; 'onbekend' betekent niet dat de combinatie veilig is. Controleer dit met arts of apotheker vóór gebruik van een kruidenmiddel naast medicatie."
+    : r.safety);
+  return `<section class="panel"><h3>Wat is bewezen?</h3><p>${safeText(evidence)}</p><p><strong>Bron:</strong> <a href="${safeText(d.sourceUrl)}" target="_blank" rel="noopener noreferrer">EMA / officiële kruideninformatie</a></p></section>
+  <section class="panel"><h3>Dosering en gebruik</h3><p>${safeText(dose)}</p><p>Doseringen uit monografieën gelden alleen voor de beschreven plant, plantendeel en bereiding; ze zijn geen persoonlijke medische aanbeveling.</p></section>
+  <section class="panel warning"><h3>Medicijninteracties</h3><p>${safeText(interactions)}</p><p><a href="https://www.cbg-meb.nl/onderwerpen/medicijnen/kruiden/kruidencheck" target="_blank" rel="noopener noreferrer">Controleer kruiden en medicijnen bij het CBG</a></p></section>
+  <section class="panel"><h3>Waar kun je het krijgen?</h3><ul><li><a href="${safeText(d.orderUrl)}" target="_blank" rel="noopener noreferrer">Zoek gedroogd kruid of product om te bestellen</a></li><li><a href="${safeText(d.growUrl)}" target="_blank" rel="noopener noreferrer">Zoek een plant bij een kwekerij of tuincentrum</a></li><li><a href="${safeText(d.harvestUrl)}" target="_blank" rel="noopener noreferrer">Zoek informatie over herkennen en verspreiding</a></li></ul><p>Koop bij voorkeur een duidelijk gelabeld product met botanische naam, plantendeel, herkomst en gebruiksaanwijzing. Een zoekresultaat is geen aanbeveling of kwaliteitscontrole.</p><p><strong>Zelf plukken:</strong> doe dit alleen als de plant 100% zeker is geïdentificeerd, op een schone plek en waar plukken is toegestaan. Vermijd bermen, vervuilde grond en beschermde soorten. Eet of gebruik een onbekende plant nooit.</p></section>`;
+}
+
 function render(){
  saveFavs();
- if(selectedId){const r=remedies.find(x=>x.id===selectedId);app.innerHTML=`<button class="back" id="back">← Terug naar overzicht</button><section class="detail-head"><div class="plant-icon">${r.icon}</div><h2>${safeText(r.name)}</h2><div class="latin">${safeText(r.plant)} · ${safeText(r.latin)}</div><span class="tag">Traditionele toepassing / informatie</span><p>${safeText(r.summary)}</p><button class="btn secondary" data-fav="${r.id}">${favorites.has(r.id)?"♥ Verwijder favoriet":"♡ Bewaar favoriet"}</button></section><section class="panel"><h3>Ingrediënten / product</h3><ul>${r.ingredients.map(x=>`<li>${safeText(x)}</li>`).join("")}</ul></section><section class="panel"><h3>Bereiding of gebruik</h3><ol>${r.steps.map(x=>`<li>${safeText(x)}</li>`).join("")}</ol></section><section class="panel"><h3>Toepassing</h3><p>${safeText(r.use)}</p></section><section class="panel warning"><h3>⚠ Veiligheid en wisselwerkingen</h3><p>${safeText(r.safety)}</p></section><section class="panel"><h3>Belangrijk</h3><p>Deze app geeft algemene, educatieve informatie en stelt geen diagnose. Gebruik kruiden niet als vervanging voor voorgeschreven medicatie. Raadpleeg een arts of apotheker bij zwangerschap, chronische aandoeningen, medicijngebruik of aanhoudende klachten.</p></section>`;
+ if(selectedId){const r=remedies.find(x=>x.id===selectedId);app.innerHTML=`<button class="back" id="back">← Terug naar overzicht</button><section class="detail-head"><div class="plant-icon">${r.icon}</div><h2>${safeText(r.name)}</h2><div class="latin">${safeText(r.plant)} · ${safeText(r.latin)}</div><span class="tag">Traditionele toepassing / informatie</span><p>${safeText(r.summary)}</p><button class="btn secondary" data-fav="${r.id}">${favorites.has(r.id)?"♥ Verwijder favoriet":"♡ Bewaar favoriet"}</button></section><section class="panel"><h3>Ingrediënten / product</h3><ul>${r.ingredients.map(x=>`<li>${safeText(x)}</li>`).join("")}</ul></section><section class="panel"><h3>Bereiding of gebruik</h3><ol>${r.steps.map(x=>`<li>${safeText(x)}</li>`).join("")}</ol></section><section class="panel"><h3>Toepassing</h3><p>${safeText(r.use)}</p></section><section class="panel warning"><h3>⚠ Veiligheid en wisselwerkingen</h3><p>${safeText(r.safety)}</p></section>${sourcePanel(r)}<section class="panel"><h3>Belangrijk</h3><p>Deze app geeft algemene, educatieve informatie en stelt geen diagnose. Gebruik kruiden niet als vervanging voor voorgeschreven medicatie. Raadpleeg een arts of apotheker bij zwangerschap, chronische aandoeningen, medicijngebruik of aanhoudende klachten.</p></section>`;
  } else if(view==="safety"){app.innerHTML=`<h2 class="section-title">Veilig kruiden gebruiken</h2><p class="intro">Natuurlijk betekent niet automatisch veilig. De risico's hangen af van de plant, dosis, bereiding en jouw gezondheid.</p><section class="panel warning"><h3>Controleer altijd</h3><ul><li>Wisselwerkingen met medicijnen, vooral bloedverdunners en hartmedicatie.</li><li>Zwangerschap, borstvoeding, allergieën en chronische aandoeningen.</li><li>Of de plant en het gebruikte deel correct zijn geïdentificeerd.</li><li>De herkomst, kwaliteit en gebruiksaanwijzing van een product.</li></ul></section><section class="panel"><h3>Wanneer hulp zoeken?</h3><p>Bij ernstige, plotselinge of snel verergerende klachten, benauwdheid, pijn op de borst, bewustzijnsverlies of tekenen van een ernstige allergische reactie: zoek direct medische hulp.</p></section><section class="panel"><h3>Bronnen en bewijs</h3><p>Een complete versie hoort per remedie betrouwbare bronnen te tonen, zoals EMA/HMPC-monografieën, RIVM, apotheekinformatie en relevante onderzoeken. Traditioneel gebruik moet duidelijk worden onderscheiden van klinisch bewezen werking.</p></section>`;
  } else if(view==="favorites"){const list=remedies.filter(r=>favorites.has(r.id)&&matches(r));app.innerHTML=`<h2 class="section-title">Mijn favorieten</h2><p class="intro">Bewaar remedies om ze snel terug te vinden. Favorieten worden lokaal op dit apparaat opgeslagen.</p>${list.length?`<div class="list">${list.map(card).join("")}</div>`:`<div class="empty">Nog geen favorieten. Open een remedie en tik op ♡ om deze te bewaren.</div>`}`;
  } else if(selectedCategory){const list=remedies.filter(r=>r.category===selectedCategory&&matches(r));app.innerHTML=`<button class="back" id="back">← Alle categorieën</button><h2 class="section-title">${safeText(selectedCategory)}</h2><p class="intro">Remedies en informatie binnen deze categorie.</p>${list.length?`<div class="list">${list.map(card).join("")}</div>`:`<div class="empty">Geen resultaten voor deze zoekopdracht.</div>`}`;
  } else if(query.trim()){const list=remedies.filter(matches);app.innerHTML=`<h2 class="section-title">Zoekresultaten</h2><p class="intro">${list.length} resultaat/resultaten in de huidige voorbeeldbibliotheek.</p>${list.length?`<div class="list">${list.map(card).join("")}</div>`:`<div class="empty">Geen resultaten. Probeer een andere zoekterm.</div>`}`;
  } else {app.innerHTML=`<h2 class="section-title">Ontdek per onderwerp</h2><p class="intro">Kies een categorie of zoek direct naar een kruid of remedie.</p><div class="grid">${categories.map(c=>`<button class="category" data-category="${safeText(c.name)}"><span class="symbol">${c.icon}</span><strong>${safeText(c.name)}</strong><small>${safeText(c.desc)}</small></button>`).join("")}</div><h2 class="section-title" style="margin-top:28px">Populaire informatie</h2><div class="list">${remedies.slice(0,4).map(card).join("")}</div><p class="intro" style="margin-top:20px">Bibliotheek: ${remedies.length} fiches. Aanvullende fiches zijn voorlopig en moeten nog deskundig worden gecontroleerd voordat ze als remedie gebruikt kunnen worden.</p>`}
 }
-function matches(r){const q=query.trim().toLowerCase();return !q||[r.name,r.plant,r.latin,r.category,r.summary,r.use].join(" ").toLowerCase().includes(q)}
-document.addEventListener("click",e=>{const tab=e.target.closest("[data-view]");if(tab){setView(tab.dataset.view);return}const cat=e.target.closest("[data-category]");if(cat){selectedCategory=cat.dataset.category;render();return}const d=e.target.closest("[data-detail]");if(d){detail(d.dataset.detail);return}const f=e.target.closest("[data-fav]");if(f){toggleFav(f.dataset.fav);return}if(e.target.id==="back"){selectedId=null;if(selectedCategory)selectedCategory=null;render()}});
+function matches(r){const q=query.trim().toLowerCase();return !q||[r.name,r.plant,r.latin,r.category,r.summary,r.use,r.safety].join(" ").toLowerCase().includes(q)}
+document.addEventListener("click",e=>{const tab=e.target.closest("[data-view]");if(tab){setView(tab.dataset.view);return}const cat=e.target.closest("[data-category]");if(cat){selectedCategory=cat.dataset.category;saveNavigation();render();return}const d=e.target.closest("[data-detail]");if(d){detail(d.dataset.detail);return}const f=e.target.closest("[data-fav]");if(f){toggleFav(f.dataset.fav);return}if(e.target.id==="back"){if(selectedId){selectedId=null}else if(selectedCategory){selectedCategory=null}else{view="home"}saveNavigation();render()}});
 search.addEventListener("input",e=>{query=e.target.value;selectedId=null;selectedCategory=null;if(query) {view="home";document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.view==="home"))}render()});
 document.getElementById("clearSearch").addEventListener("click",()=>{search.value="";query="";render();search.focus()});
 saveFavs();render();
